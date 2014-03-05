@@ -27,6 +27,7 @@ namespace Sample.Android
         private SampleListFragment list_fragment;
         private GridFragment grid_fragment;
         private ImageFragment image_fragment;
+        private ExpandableListFragment expandablelist_fragment;
 
         #region lifecycle
 
@@ -62,15 +63,23 @@ namespace Sample.Android
             var transaction = SupportFragmentManager.BeginTransaction();
             transaction.SetTransition((int)SupportFragmentTransaction.TransitFragmentOpen);
 
-            if (args.NavItemPosition == 0) {
+            if (args.NavItemPosition == NavigationDestination.List) {
                 list_fragment = list_fragment ?? new SampleListFragment();
+                list_fragment.FastScrollEnabled = false;
                 transaction.Replace(containerResId, list_fragment);
-            } else if (args.NavItemPosition == 1) {
+            } else if (args.NavItemPosition == NavigationDestination.Grid) {
                 grid_fragment = grid_fragment ?? new GridFragment();
                 transaction.Replace(containerResId, grid_fragment);
-            } else if (args.NavItemPosition == 2) {
+            } else if (args.NavItemPosition == NavigationDestination.ScrollView) {
                 image_fragment = new ImageFragment(Resource.Drawable.android_flavors);
                 transaction.Replace(containerResId, image_fragment);
+            } else if (args.NavItemPosition == NavigationDestination.ListFastScroll) {
+                list_fragment = list_fragment ?? new SampleListFragment();
+                list_fragment.FastScrollEnabled = true;
+                transaction.Replace(containerResId, list_fragment);
+            } else if (args.NavItemPosition == NavigationDestination.ExpandableList) {
+                expandablelist_fragment = expandablelist_fragment ?? new ExpandableListFragment();
+                transaction.Replace(containerResId, expandablelist_fragment);
             }
 
             transaction.AddToBackStack(null);

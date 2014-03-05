@@ -40,6 +40,7 @@ namespace PullToRefresharp.Android.Views
 		private int header_background_res_id;
 		private ColorStateList header_text_color;
 		private int pulldown_icon_drawable_res_id;
+		private int fastscroll_thumb_width;
 
 		private Scroller scroller;
 		private IPullDownProgressIndicator pulldown_progress_indicator;
@@ -60,7 +61,11 @@ namespace PullToRefresharp.Android.Views
 
 		public int SnapbackDuration;
 		public bool IsPullEnabled;
-		public readonly PullToRefresharpRefreshState State;
+		public PullToRefresharpRefreshState State {
+			get {
+				return refresh_state;
+			}
+		}
 
 		public IPullToRefresharpWrappedView ContentView {
 			get;
@@ -113,11 +118,11 @@ namespace PullToRefresharp.Android.Views
 			pulldown_progress_indicator_res_id = a.GetResourceId(Resource.Styleable.PullToRefresharpWrapper_pullDownProgressIndicatorId, 0);
 
 			pull_to_refresh_string_id = a.GetResourceId(Resource.Styleable.PullToRefresharpWrapper_pullToRefreshText,
-			                                            Resource.String.ptrsharp_pull_to_refresh);
+				Resource.String.ptrsharp_pull_to_refresh);
 			release_to_refresh_string_id = a.GetResourceId(Resource.Styleable.PullToRefresharpWrapper_releaseToRefreshText,
-			                                               Resource.String.ptrsharp_release_to_refresh);
+				Resource.String.ptrsharp_release_to_refresh);
 			refreshing_string_id = a.GetResourceId(Resource.Styleable.PullToRefresharpWrapper_refreshingText,
-			                                       Resource.String.ptrsharp_refreshing);
+				Resource.String.ptrsharp_refreshing);
 
 			header_background_res_id = a.GetResourceId(Resource.Styleable.PullToRefresharpWrapper_ptrHeaderBackground, 0);
 			header_text_color = a.GetColorStateList(Resource.Styleable.PullToRefresharpWrapper_headerTextColor);
@@ -127,6 +132,11 @@ namespace PullToRefresharp.Android.Views
 			pulldown_tension_factor = a.GetFloat(Resource.Styleable.PullToRefresharpWrapper_pullDownTension, 0.5f);
 			SnapbackDuration = a.GetInt(Resource.Styleable.PullToRefresharpWrapper_snapbackDuration, 400);
 			IsPullEnabled = a.GetBoolean(Resource.Styleable.PullToRefresharpWrapper_pullEnabled, true);
+
+			fastscroll_thumb_width = a.GetDimensionPixelSize(Resource.Styleable.PullToRefresharpWrapper_fastScrollThumbWidth, -1);
+			if (fastscroll_thumb_width < 0) {
+				fastscroll_thumb_width = Resources.GetDimensionPixelSize(Resource.Dimension.fastscroll_thumb_width);
+			}
 
 			// Enforce the constraint that both or none of the attributes headerId and viewId are set
 			if (header_res_id > 0 && content_view_res_id == 0 || content_view_res_id > 0 && header_res_id == 0) {
@@ -178,16 +188,16 @@ namespace PullToRefresharp.Android.Views
 			}
 
 			switch(refresh_state) {
-				case PullToRefresharpRefreshState.Refreshing:
+			case PullToRefresharpRefreshState.Refreshing:
 				refresh_text.Text = Resources.GetString(refreshing_string_id);
 				ContentView.OnRefreshActivated();
 				break;
 
-				case PullToRefresharpRefreshState.PullToRefresh:
+			case PullToRefresharpRefreshState.PullToRefresh:
 				refresh_text.Text = Resources.GetString(pull_to_refresh_string_id);
 				break;
 
-				case PullToRefresharpRefreshState.ReleaseToRefresh:
+			case PullToRefresharpRefreshState.ReleaseToRefresh:
 				refresh_text.Text = Resources.GetString(release_to_refresh_string_id);
 				break;
 			}
@@ -220,7 +230,7 @@ namespace PullToRefresharp.Android.Views
 			}
 
 			if (ev.ActionMasked == MotionEventActions.Down && ContentView.IsAtTop
-			    && refresh_state != PullToRefresharpRefreshState.Refreshing) {
+				&& refresh_state != PullToRefresharpRefreshState.Refreshing) {
 				did_steal_event_stream = false;
 				send_down_event = false;
 
@@ -231,7 +241,7 @@ namespace PullToRefresharp.Android.Views
 					ContentView.IgnoreTouchEvents = true;
 				}
 			} else if (ev.ActionMasked == MotionEventActions.Up && current_scroll_y < 0 
-			           && refresh_state != PullToRefresharpRefreshState.Refreshing) {
+				&& refresh_state != PullToRefresharpRefreshState.Refreshing) {
 				// Same as above, tell the view to ignore touch events so it
 				// doesn't register a click at the wrong time.
 				ContentView.IgnoreTouchEvents = true;
@@ -256,8 +266,19 @@ namespace PullToRefresharp.Android.Views
 				return base.OnTouchEvent(e);
 			}
 
+			if (ContentView is AbsListView && ((AbsListView)ContentView).FastScrollEnabled) {
+				// An adimittedly crude way to determine if touch is in fast scroll, but
+				// should accomplish the goal of not displaying ptr header.
+				// This is crude because there is not a definitive way to determine
+				// a) if the fast scroller is visible or
+				// b) the width of the scroller
+				if (Resources.DisplayMetrics.WidthPixels - e.RawX < fastscroll_thumb_width) {
+					return false; // let the list view handle this
+				}
+			}
+
 			switch(e.ActionMasked) {
-				case MotionEventActions.Down:
+			case MotionEventActions.Down:
 				last_touch_y = ContentView.IsAtTop ? (int)e.RawY : -1;
 				if (!ContentView.IsAtTop) {
 					send_down_event = false; // because this event will reach the ContentView
@@ -266,7 +287,7 @@ namespace PullToRefresharp.Android.Views
 				}
 				return ContentView.IsAtTop;
 
-				case MotionEventActions.Move:
+			case MotionEventActions.Move:
 				if (did_steal_event_stream && current_scroll_y >= 0) {
 					if (send_down_event) {
 						did_steal_event_stream = false;
@@ -331,7 +352,7 @@ namespace PullToRefresharp.Android.Views
 				}
 				return false;
 
-				case MotionEventActions.Up:
+			case MotionEventActions.Up:
 				return HandleUpEvent(e);
 			}
 
@@ -445,7 +466,7 @@ namespace PullToRefresharp.Android.Views
 			// is an error
 			if (ChildCount == 0 || ChildCount > 2) {
 				throw new ArgumentOutOfRangeException(String.Format("Wrapper must have 1 or 2 children, found {0}",
-				                                                    ChildCount));
+					ChildCount));
 			}
 
 			if (ChildCount == 1) {
